@@ -1,0 +1,6 @@
+"0","library(parallel)"
+"0","bench::mark("
+"0","  lapply(1:100000,log),"
+"0","  mclapply(1:100000,log),"
+"0","  memory = FALSE"
+"0",") %>% select(expression,total_time) %>% kable(""html"") "

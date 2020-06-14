@@ -1,0 +1,23 @@
+"0","translate(dna)
+"
+"2","Parsed with column specification:
+cols(
+  Codon = [31mcol_character()[39m,
+  AA = [31mcol_character()[39m,
+  Start = [31mcol_character()[39m
+)
+"
+"1","ATG "
+"1","GGG "
+"1","ACC "
+"1","ATG "
+"1","AAG "
+"1","
+"
+"1","""M"" "
+"1","""G"" "
+"1","""T"" "
+"1","""M"" "
+"1","""K"" "
+"1","
+"

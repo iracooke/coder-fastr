@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1592115500897.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "224B2364",
+    "lastKnownWriteTime" : 1592117735,
+    "last_content_update" : 1592117735283,
+    "path" : "~/Dropbox/ActiveProjects/codertsv/fastr/R/translate_step0.R",
+    "project_path" : "R/translate_step0.R",
+    "properties" : {
+        "cursorPosition" : "27,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

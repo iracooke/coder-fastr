@@ -1,0 +1,277 @@
+---
+title: "Writing fast R code"
+author: "Ira Cooke"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+  ioslides_presentation:
+    incremental: false
+    css: styles.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(knitr)
+library(tidyverse)
+library(bench)
+library(kableExtra)
+```
+
+# Credits
+
+This talk mostly follows chapters 23 and 24 of the book Advanced R by Hadley Wickham.
+
+https://adv-r.hadley.nz/
+
+Another source of inspiration, and a worthwhile read is the *R inferno* by Patrick Burns
+
+http://www.burns-stat.com/pages/Tutor/R_inferno.pdf
+
+
+## Should you bother?
+
+> *Premature optimisation is the root of all evil*
+
+~Donald Knuth
+
+> - But ... 
+> - Sometimes slow code is slowing *you* down
+> - A little optimisation goes a long way
+> - Nobody wants to be slow
+
+## Before you optimise {.build}
+
+1. Be ready to test correctness of your code
+2. Be ready to test the speed of your code
+
+Because ... common mistakes when optimising are;
+
+- Writing faster but incorrect code
+- Writing code that isn't actually faster!
+
+## Microbenchmarking
+
+The `bench` package provides useful methods to accurately measure the performance of code
+
+```{r, echo=TRUE}
+x <- runif(100)
+
+lb <- bench::mark(
+  sqrt(x),
+  x ^ 0.5
+)
+
+lb %>% select(expression,total_time) %>% 
+  kable("html") 
+```
+
+
+## Optimisation Strategies
+
+- Do as little as possible
+- Avoid io calls
+- Avoid copies
+- Vectorise
+- Rewrite your R code in C++
+- Parallelise
+
+## Avoiding iocalls
+
+The slowest possible thing you can ask a computer to do is read from a file on disk
+
+```{r, include=FALSE}
+mydata <- c("a","b","c")
+write_rds(mydata,"mydata.Rds")
+```
+
+```{r, echo=TRUE}
+bench::mark(
+  c("a","b","c"),
+  read_rds("mydata.Rds")
+) %>% select(expression,total_time) %>% kable("html") 
+```
+
+## Do as little as possible
+
+Often this is as simple as avoiding needlessly redoing the same thing. What's wrong with this code?
+
+```{r, warning=FALSE, message=FALSE, echo=TRUE}
+dna2codons <- function(dna){  
+  starts=seq(1,nchar(dna),by=3);
+  substring(dna,starts,starts+2)
+}
+translate <- function(dna){
+  codontable <- read_tsv("data/genetic_code.tsv")
+  codondict <- codontable$AA; names(codondict) <- codontable$Codon
+  codondict[dna2codons(dna)]  
+}
+
+dna <- "ATGGGGACCATGAAG"
+translate(dna)
+```
+
+## Do as little as possible
+
+```{r, warning=FALSE, message=FALSE, echo=TRUE}
+codontable <- read_tsv("data/genetic_code.tsv")
+codondict <- codontable$AA; names(codondict) <- codontable$Codon
+
+translate_fast <- function(dna,codondict){
+  codondict[dna2codons(dna)]  
+}
+
+dna <- "ATGGGGACCATGAAG"
+
+bench::mark(
+  translate(dna),
+  translate_fast(dna,codondict)
+) %>% select(expression,total_time) %>% kable("html") 
+```
+
+
+## Avoid copies
+
+> We made our way into the second Circle, here live the gluttons.
+
+~ The R inferno
+
+The second slowest thing a computer can do is allocate memory. 
+
+Because R mostly automatically manages memory it's easy to accidentally write code that is slow because is needlessly copies data (and reallocates memory). 
+
+## Avoid copies
+
+Here are two ways to make the same vector
+
+```{r, echo=TRUE}
+grow <- function(n){
+  vec <- numeric(0)
+  for(i in 1:n) vec <- c(vec, i)
+  vec
+}
+
+assign <- function(n){
+  vec <- numeric(n)
+  for(i in 1:n) vec[i] <- i
+  vec
+}
+```
+```{r}
+bench::mark(
+  grow(100),
+  assign(100)
+) %>% select(expression,total_time) %>% kable("html") 
+```
+
+## Vectorise {.build}
+
+Consider the following code.  Can you think of a faster way to do this?
+
+```{r, echo=TRUE}
+x <- runif(10)
+lsum = 0
+for(i in 1:10){
+  lsum <- lsum + log(x[i])
+}
+```
+
+```{r, echo=TRUE}
+lsum <- sum(log(x))
+```
+
+
+## Vectorise 
+
+Let's benchmark these approaches.
+
+```{r, echo=TRUE}
+x <- runif(10)
+lsum_loop <- function(x){
+  lsum = 0
+  for(i in 1:10){  lsum <- lsum + log(x[i])}
+  lsum
+}
+
+bench::mark(
+  lsum_loop(x),
+  sum(log(x))
+) %>% select(expression,total_time) %>% kable("html") 
+```
+
+
+## Rewrite in C++
+
+Vectorisation depends on the availability of appropriate vectorised functions (eg `log`) in the previous example.
+
+Sometimes it is difficult or impossible to rewrite your code to use these built-in functions. Eg when;
+
+- You have loops where subsequent iterations depend on previous ones
+- You need to call functions millions of times (eg when using recursion)
+- Your problem is just too complex to break down into R's vectorised functions
+
+In such cases you can use the Rcpp package to write your own `C++` function in `R`. 
+
+## Rewrite in C++
+
+Rewriting in C++ means that your function will need be compiled before it can be used.  It also involves learning a few new concepts and some `C++`.  
+
+A good place to start (as always) is Hadley Wickham's, Advanced R chapter on the topic 
+
+http://adv-r.had.co.nz/Rcpp.html
+
+I've used this approach twice in `R` packages and both times it gave me at least a 10x speed improvement
+
+https://github.com/iracooke/AlignStat
+https://github.com/iracooke/ampir
+
+## Parallelise
+
+Most modern computers have multiple cores.  If your problem can easily be broken into **independent** chunks you can most likely achieve a big performance boost simply by running those chunks in parallel on separate cores
+
+The `parallel` package provides a really simple way to achieve this.  It provides the function `mclapply()` as a multicore alternative to the usual `lapply()`
+
+*On windows this is slightly messier but still easy.  
+
+See http://adv-r.had.co.nz/Profiling.html#parallelise
+
+## Parallelise
+
+Suppose we have a function which takes some to do its work. 
+
+```{r}
+pause <- function(i) {
+  function(x) Sys.sleep(i)
+}
+```
+
+This function just waits and does nothing but in a real appliction it would be doing some operation on a chunk of input data.
+
+We can use `lapply()` to run it 10 times.  In this case our input data consists of the numbers 1 to 10. 
+
+```{r}
+system.time(lapply(1:10,pause(0.5)))
+```
+
+## Parallelise
+
+Since the operation on each chunk of data is independent we can each chunk on a separate core using `mclapply()`.  First. How many cores do we have?
+
+```{r, echo=TRUE}
+library(parallel)
+detectCores()
+```
+
+```{r, echo=TRUE}
+system.time(mclapply(1:10,pause(0.5), mc.cores = 6))
+```
+
+We had 6 cores and our speedup was a factor of 5.  This is because there is a little overhead in running all those separate processes.
+
+## Profiling
+
+In a complex codebase it can sometimes be hard to spot the slow parts.  Modern computers also have lots of clever tricks so sometimes your intuition about what is fast and what is slow can be wrong. 
+
+This is where *Profiling* comes in.  A profiling tool will track your code as it runs, measuring the time spent within each function and on each line of code.  The [profvis](https://rstudio.github.io/profvis/) tool provides this functionality to `R` programmers. 
+
+
+
+
