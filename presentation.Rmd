@@ -64,7 +64,6 @@ lb %>% select(expression,total_time) %>%
   kable("html") 
 ```
 
-
 ## Optimisation Strategies
 
 - Do as little as possible
@@ -74,21 +73,6 @@ lb %>% select(expression,total_time) %>%
 - Rewrite your R code in C++
 - Parallelise
 
-## Avoiding iocalls
-
-The slowest possible thing you can ask a computer to do is read from a file on disk
-
-```{r, include=FALSE}
-mydata <- c("a","b","c")
-write_rds(mydata,"mydata.Rds")
-```
-
-```{r, echo=TRUE}
-bench::mark(
-  c("a","b","c"),
-  read_rds("mydata.Rds")
-) %>% select(expression,total_time) %>% kable("html") 
-```
 
 ## Do as little as possible
 
@@ -109,6 +93,22 @@ dna <- "ATGGGGACCATGAAG"
 translate(dna)
 ```
 
+## Avoiding iocalls
+
+The slowest possible thing you can ask a computer to do is read from a file on disk
+
+```{r, include=FALSE}
+mydata <- c("a","b","c")
+write_rds(mydata,"mydata.Rds")
+```
+
+```{r, echo=TRUE}
+bench::mark(
+  c("a","b","c"),
+  read_rds("mydata.Rds")
+) %>% select(expression,total_time) %>% kable("html") 
+```
+
 ## Do as little as possible
 
 ```{r, warning=FALSE, message=FALSE, echo=TRUE}
@@ -126,7 +126,6 @@ bench::mark(
   translate_fast(dna,codondict)
 ) %>% select(expression,total_time) %>% kable("html") 
 ```
-
 
 ## Avoid copies
 
@@ -237,7 +236,7 @@ See http://adv-r.had.co.nz/Profiling.html#parallelise
 
 Suppose we have a function which takes some to do its work. 
 
-```{r}
+```{r, echo=TRUE}
 pause <- function(i) {
   function(x) Sys.sleep(i)
 }
@@ -247,7 +246,7 @@ This function just waits and does nothing but in a real appliction it would be d
 
 We can use `lapply()` to run it 10 times.  In this case our input data consists of the numbers 1 to 10. 
 
-```{r}
+```{r, echo=TRUE}
 system.time(lapply(1:10,pause(0.5)))
 ```
 
